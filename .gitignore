@@ -6,3 +6,5 @@ gradle.properties
 .DS_Store
 /build
 image-chooser-library/gradle.properties
+*.iml
+.idea/*
