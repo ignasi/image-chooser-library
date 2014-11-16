@@ -107,7 +107,7 @@ public abstract class MediaProcessorThread extends Thread {
 		if (Config.DEBUG) {
 			Log.i(TAG, "Compressing ... THUMBNAIL");
 		}
-		return compressAndSaveImage(file, THUMBNAIL_BIG);
+		return compressAndSaveImage(file);
 	}
 
 	private String getThumbnailSmallPath(String file) throws Exception {
@@ -117,7 +117,69 @@ public abstract class MediaProcessorThread extends Thread {
 		return compressAndSaveImage(file, THUMBNAIL_SMALL);
 	}
 
-	private String compressAndSaveImage(String fileImage, int scale)
+    private static int calculateInSampleSize(int width, int height, int reqWidth, int reqHeight) {
+        int inSampleSize = 1;
+
+        if (height > reqHeight || width > reqWidth) {
+
+            final int halfHeight = height / 2;
+            final int halfWidth = width / 2;
+
+            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+            // height and width larger than the requested height and width.
+            while ((halfHeight / inSampleSize) > reqHeight
+                    || (halfWidth / inSampleSize) > reqWidth) {
+                inSampleSize *= 2;
+            }
+        }
+
+        return inSampleSize;
+    }
+
+    public static String compressAndSaveImage(String path) throws Exception {
+        try {
+            ExifInterface exif = new ExifInterface(path);
+            String width = exif.getAttribute(ExifInterface.TAG_IMAGE_WIDTH);
+            String length = exif.getAttribute(ExifInterface.TAG_IMAGE_LENGTH);
+
+            int w = Integer.parseInt(width);
+            int l = Integer.parseInt(length);
+
+            BitmapFactory.Options options = new BitmapFactory.Options();
+
+            options.inSampleSize = calculateInSampleSize(w, l, 1024, 1024);
+
+            Bitmap bitmap = BitmapFactory.decodeFile(path, options);
+            File original = new File(path);
+            File file = new File(
+                    (original.getParent() + File.separator + original.getName()
+                            .replace(".jpg", "_compressed.jpg")));
+
+            FileOutputStream stream = new FileOutputStream(file);
+
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, stream);
+
+            ExifInterface e = new ExifInterface(file.getAbsolutePath());
+
+            if (exif.getAttribute("Orientation") != null) {
+                e.setAttribute("Orientation", exif.getAttribute("Orientation"));
+            }
+            e.saveAttributes();
+
+            stream.flush();
+            stream.close();
+            return file.getAbsolutePath();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw e;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Exception("Corrupt or deleted file???");
+        }
+    }
+
+    private String compressAndSaveImage(String fileImage, int scale)
 			throws Exception {
 		try {
 			ExifInterface exif = new ExifInterface(fileImage);
